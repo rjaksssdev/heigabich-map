@@ -23,12 +23,9 @@
     --avail:#12a150;
     --avail-bg:#f1fbf5;
     --avail-line:#c9eed8;
-    --confirm:#e03131;
-    --confirm-bg:#fff5f5;
-    --confirm-line:#ffd6d6;
-    --unsold:#7b8695;
-    --unsold-bg:#f4f5f7;
-    --unsold-line:#e3e6ea;
+    --done:#4a5462;
+    --done-bg:#f4f5f7;
+    --done-line:#e0e4e9;
     --naver:#03c75a;
     --sun:#f59f00;
     --radius:20px;
@@ -112,15 +109,14 @@
   .day[aria-selected="true"] .n{color:#8ff0b4}
 
   /* ---------- summary ---------- */
-  .summary{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+  .summary{display:grid; grid-template-columns:repeat(2,1fr); gap:8px}
   .stat{border:1px solid var(--line); background:var(--card); border-radius:15px; padding:9px 12px 10px; box-shadow:var(--shadow)}
   .stat .k{display:flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:var(--muted)}
   .stat .k i{width:8px;height:8px;border-radius:3px;display:inline-block}
   .stat b{display:block; font-size:clamp(19px,5.6vw,23px); font-weight:800; letter-spacing:-.03em; font-variant-numeric:tabular-nums; line-height:1.2; margin-top:1px}
   .stat b span{font-size:12px; font-weight:700; color:var(--muted); margin-left:1px}
   .stat.avail{border-color:var(--avail-line); background:var(--avail-bg)} .stat.avail b{color:#0b8a44} .stat.avail .k i{background:var(--avail)}
-  .stat.confirm{border-color:var(--confirm-line); background:var(--confirm-bg)} .stat.confirm b{color:#c92a2a} .stat.confirm .k i{background:var(--confirm)}
-  .stat.unsold{background:var(--unsold-bg); border-color:var(--unsold-line)} .stat.unsold b{color:#5c6675} .stat.unsold .k i{background:#aab3be}
+  .stat.done{background:var(--done-bg); border-color:var(--done-line)} .stat.done b{color:#3b4450} .stat.done .k i{background:var(--done)}
 
   /* ---------- card / map ---------- */
   .card{background:var(--card); border-radius:var(--radius); border:1px solid var(--line); box-shadow:var(--shadow); padding:14px}
@@ -131,8 +127,7 @@
   .lg{display:inline-flex; align-items:center; gap:5px}
   .lg i{width:13px; height:13px; border-radius:4px; display:inline-block; border:1px solid rgba(0,0,0,.08)}
   .lg i.av{background:#eaf7ee; border-color:#bfe6cd; box-shadow:inset 0 0 0 1.5px var(--avail)}
-  .lg i.co{background:#3b4450}
-  .lg i.un{background:#c9d0d9}
+  .lg i.do{background:#4a5462}
 
   .map-shell{position:relative}
   .map-scroll{position:relative; overflow:auto; border-radius:14px; background:#fff; border:1px solid var(--line); -webkit-overflow-scrolling:touch}
@@ -140,23 +135,19 @@
   .map-scroll.is-zoomed .map{width:172%}
   .map img{position:absolute; inset:0; width:100%; height:100%; display:block; user-select:none; -webkit-user-drag:none; pointer-events:none}
   .ov{position:absolute; inset:0; width:100%; height:100%; display:block; overflow:visible}
-  /* 예약가능: 원본 색 그대로 + 에메랄드 테두리, 예약완료·미판매: 배지 없이 칸만 톤다운 */
-  .ov .hit{fill:transparent; cursor:pointer; transition:fill .15s ease}
+  /* 예약가능: 원본 색 그대로 + 에메랄드 테두리 · 예약완료: 배지 없이 칸만 어둡게 톤다운(한 가지 톤) */
+  .ov .hit{fill:transparent; transition:fill .15s ease}
   .ov .ring{
     fill:none; stroke-width:2; opacity:0; pointer-events:none;
     transition:opacity .15s ease, stroke .15s ease, stroke-width .15s ease;
   }
-  .ov g.st-available .ring{stroke:var(--avail); opacity:.92}
+  .ov g.available .ring{stroke:var(--avail); opacity:.92}
+  .ov a.hitlink{cursor:pointer; outline:none}
   .ov .hit.available:hover{fill:rgba(18,161,80,.14)}
-  .ov .hit.confirmed{fill:rgba(84,94,108,.5)}
-  .ov .hit.unsold{fill:rgba(203,210,218,.8)}
-  .ov g:hover .hit.confirmed{fill:rgba(84,94,108,.42)}
-  .ov g:hover .hit.unsold{fill:rgba(203,210,218,.68)}
-  .ov g.is-sel .ring{opacity:1; stroke:var(--ink); stroke-width:3}
-  .ov g.is-sel .hit.available{fill:rgba(18,161,80,.2)}
-  .ov g:focus{outline:none}
-  .ov g:focus-visible .ring{opacity:1; stroke:#0c63e4}
-  .sel-bar[hidden]{display:none}
+  .ov g.done a.hitlink{cursor:default}
+  .ov .hit.done{fill:rgba(59,68,80,.46)}
+  .ov a.hitlink:focus-visible .ring{opacity:1; stroke:#0c63e4}
+  .ov a.hitlink:focus-visible .hit.available{fill:rgba(18,161,80,.2)}
 
   .map-foot{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:9px; flex-wrap:wrap}
   .hint{margin:0; font-size:12px; color:var(--muted)}
@@ -165,21 +156,6 @@
     border:1px solid var(--line); background:#fff; border-radius:10px; padding:7px 11px;
   }
   .zoom:hover{background:#f7f9fa}
-
-  .sel-bar{
-    display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:10px; padding:10px 12px;
-    border-radius:13px; background:#f7f9fb; border:1px solid var(--line); animation:fade .18s ease;
-  }
-  @keyframes fade{from{opacity:0; transform:translateY(-3px)}to{opacity:1; transform:none}}
-  .sel-bar .nm{font-weight:800; font-size:14.5px}
-  .sel-bar .zk{font-size:12.5px; color:var(--muted)}
-  .sel-bar .pill{font-size:12px; font-weight:800; border-radius:999px; padding:3px 9px; border:1px solid}
-  .sel-bar .pill.available{color:#0b8a44; background:var(--avail-bg); border-color:var(--avail-line)}
-  .sel-bar .pill.confirmed{color:#3b4450; background:#eff1f4; border-color:#d7dde4}
-  .sel-bar .pill.unsold{color:#5c6675; background:var(--unsold-bg); border-color:var(--unsold-line)}
-  .sel-bar .go{margin-left:auto; font-size:12.5px; font-weight:800; color:#0b8a44}
-  .sel-bar .x{margin-left:auto; color:var(--muted); font-size:16px; line-height:1; padding:2px 4px}
-  .sel-bar .go + .x{margin-left:6px}
 
   /* ---------- zones ---------- */
   .zones{display:grid; grid-template-columns:1fr; gap:12px}
@@ -198,10 +174,10 @@
     padding:5px 9px; border-radius:9px; border:1px solid; transition:transform .1s ease;
   }
   .chip:active{transform:scale(.96)}
+  a.chip{text-decoration:none}
   .chip.available{color:#0b6b37; background:#f1fbf5; border-color:#d3f0de}
-  .chip.confirmed{color:#fff; background:#e03131; border-color:#c92a2a}
-  .chip.unsold{color:#77808c; background:#f4f5f7; border-color:#e6e9ec; text-decoration:line-through}
-  .chip.is-sel{outline:2px solid #16202b; outline-offset:1px}
+  .chip.done{color:#77808c; background:#f4f5f7; border-color:#e6e9ec; cursor:default}
+  a.chip.done:active{transform:none}
 
   /* ---------- footer ---------- */
   .foot{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:15px 16px; box-shadow:var(--shadow); font-size:12.5px; color:var(--muted); line-height:1.7}
@@ -231,7 +207,6 @@
     .zone-nums{margin-left:0; text-align:left; width:100%; margin-top:6px}
     .zone-head{flex-wrap:wrap}
     .ov .ring{stroke-width:1.6}
-    .ov g.is-sel .ring{stroke-width:2.4}
   }
   @media (max-width:400px){
     body{padding:10px 10px calc(22px + env(safe-area-inset-bottom))}
@@ -283,17 +258,15 @@
 
   <section class="summary" id="summary" aria-label="선택 날짜 요약">
     <div class="stat avail"><div class="k"><i></i>예약가능</div><b id="cAvail">–</b></div>
-    <div class="stat confirm"><div class="k"><i></i>예약완료</div><b id="cConfirm">–</b></div>
-    <div class="stat unsold"><div class="k"><i></i>예약불가</div><b id="cUnsold">–</b></div>
+    <div class="stat done"><div class="k"><i></i>예약완료</div><b id="cDone">–</b></div>
   </section>
 
   <section class="card">
     <div class="card-head">
-      <h2 id="mapTitle">자리 배치도 <em>사이트를 누르면 자세히 보여요</em></h2>
+      <h2 id="mapTitle">자리 배치도 <em>사이트를 누르면 바로 예약 페이지로 이동해요</em></h2>
       <div class="legend">
         <span class="lg"><i class="av"></i>예약가능</span>
-        <span class="lg"><i class="co"></i>예약완료</span>
-        <span class="lg"><i class="un"></i>예약불가</span>
+        <span class="lg"><i class="do"></i>예약완료</span>
       </div>
     </div>
     <div class="map-shell">
@@ -305,10 +278,9 @@
       </div>
     </div>
     <div class="map-foot">
-      <p class="hint" id="hint">초록 테두리가 있는 자리가 그날 예약 가능한 자리예요. 어두운 칸은 예약완료, 흐린 칸은 예약불가예요.</p>
+      <p class="hint" id="hint">초록 테두리가 있는 자리는 그날 예약 가능한 자리예요. 누르면 그 자리와 날짜로 네이버 예약이 새 창에 열려요. 어두운 칸은 예약완료예요.</p>
       <button class="zoom" id="zoomBtn" type="button" aria-pressed="false">🔍 확대해서 보기</button>
     </div>
-    <div class="sel-bar" id="selBar" hidden></div>
   </section>
 
   <section class="zones" id="zones" aria-label="존별 잔여 현황"></section>
@@ -326,29 +298,19 @@
 (function () {
   "use strict";
 
-  var STATUS_CLASS = { ok: "available", confirm: "confirmed", unsold: "unsold" };
   var state = {
-    sites: [], byId: {}, zones: [], status: null, dateIdx: 0, sel: null, els: {},
+    sites: [], byId: {}, zones: [], status: null, dateIdx: 0, els: {}, chips: {},
     byDate: {}, dateIndex: {}, days: [], pages: 1, page: 0, stale: false
   };
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var el = document.getElementById("ov");
 
-  /* 원문 상태값 → 표시용 3분류
-     ok(예약가능) / confirm(확정·이용완료) / unsold(예약불가(미판매)·예약불가(판매차단)·휴무) */
+  /* 원문 상태값 → 표시용 2분류
+     ok(예약가능) / done(그 밖의 모두: 확정·이용완료·예약불가(미판매)·예약불가(판매차단)·휴무) */
   function kindOf(raw) {
     if (!raw || raw === "예약가능") return "ok";
-    if (raw === "확정" || raw.indexOf("이용완료") >= 0) return "confirm";
-    if (raw.indexOf("예약불가") >= 0 || raw.indexOf("휴무") >= 0) return "unsold";
-    return "ok";
-  }
-  /* 하단 정보바에 보여 줄 상태 이름 (운영자가 쓰는 말 그대로) */
-  function statusLabel(raw) {
-    if (!raw || raw === "예약가능") return "예약가능";
-    if (raw === "확정") return "예약완료";
-    if (raw.indexOf("예약불가(") === 0) return "예약불가 · " + raw.slice(5, -1);
-    return raw;
+    return "done";
   }
   function poly(pts) { return pts.map(function (p) { return p[0] + "," + p[1]; }).join(" "); }
   function avg(pts, i) { return pts.reduce(function (a, p) { return a + p[i]; }, 0) / pts.length; }
@@ -372,7 +334,10 @@
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
 
-  /* --- 좌표 데이터로 SVG 마커 만들기 --- */
+  /* --- 좌표 데이터로 SVG 마커 만들기 ---
+     예약가능 사이트는 SVG <a>(target=_blank)로 감싸 한 번 누르면 바로 예약 페이지가 새 창에 열린다.
+     예약완료 사이트는 href 를 비워 두어 눌러도 이동하지 않는다. */
+  var XLINK = "http://www.w3.org/1999/xlink";
   function buildMap() {
     var NS = "http://www.w3.org/2000/svg";
     var frag = document.createDocumentFragment();
@@ -381,8 +346,11 @@
       var g = document.createElementNS(NS, "g");
       g.setAttribute("class", "site");
       g.setAttribute("data-id", s.id);
-      g.setAttribute("tabindex", "0");
-      g.setAttribute("role", "button");
+
+      var a = document.createElementNS(NS, "a");
+      a.setAttribute("class", "hitlink");
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener noreferrer");
 
       var ring = document.createElementNS(NS, "polygon");
       ring.setAttribute("class", "ring");
@@ -393,28 +361,17 @@
       hit.setAttribute("class", "hit");
       hit.setAttribute("points", poly(s.points));
 
-      g.appendChild(ring);
-      g.appendChild(hit);
+      a.appendChild(ring);
+      a.appendChild(hit);
+      g.appendChild(a);
       frag.appendChild(g);
 
       state.els[s.id] = {
-        g: g, hit: hit, ring: ring,
+        g: g, a: a, hit: hit, ring: ring,
         cx: avg(s.points, 0)
       };
     });
     el.appendChild(frag);
-
-    el.addEventListener("click", function (e) {
-      var g = e.target.closest ? e.target.closest("g.site") : null;
-      if (g) select(g.getAttribute("data-id"));
-    });
-    el.addEventListener("keydown", function (e) {
-      if (e.key !== "Enter" && e.key !== " ") return;
-      var g = e.target.closest ? e.target.closest("g.site") : null;
-      if (!g) return;
-      e.preventDefault();
-      select(g.getAttribute("data-id"));
-    });
   }
 
   /* --- 운영일 날짜 바 (오늘 이후 · 운영하는 날만, 7일씩) --- */
@@ -449,10 +406,13 @@
     for (var k in d.status) if (d.status[k] === "예약가능") n++;
     return n;
   }
-  /* 그날 예약이 열린 자리(예약가능·예약완료)가 하나라도 있으면 운영일.
-     전부 미판매(휴무)인 날이나 현황 자체가 없는 날은 목록에서 뺀다. */
+  /* 그날 예약이 열린 자리(예약가능·확정·이용완료)가 하나라도 있으면 운영일.
+     전부 미판매(휴무)·판매차단인 날이나 현황 자체가 없는 날은 날짜 바에서 뺀다. */
   function isOperating(d) {
-    for (var k in d.status) if (kindOf(d.status[k]) !== "unsold") return true;
+    for (var k in d.status) {
+      var raw = d.status[k];
+      if (raw === "예약가능" || raw === "확정" || raw.indexOf("이용완료") >= 0) return true;
+    }
     return false;
   }
 
@@ -543,15 +503,14 @@
         '<div class="chips" data-chips></div>';
       var chips = card.querySelector("[data-chips]");
       sites.forEach(function (s) {
-        var c = document.createElement("button");
-        c.type = "button";
+        var c = document.createElement("a");
         c.className = "chip";
         c.dataset.id = s.id;
+        c.target = "_blank";
+        c.rel = "noopener noreferrer";
         c.textContent = s.label;
-        c.addEventListener("click", function () {
-          select(s.id, true);
-        });
         chips.appendChild(c);
+        state.chips[s.id] = c;
       });
       box.appendChild(card);
       z._card = card;
@@ -565,93 +524,72 @@
     return grp * 100000 + n * 100 + sub;
   }
 
-  /* --- 선택 --- */
-  function select(id, scroll) {
-    if (state.sel === id) { clearSel(); return; }
-    clearSel();
-    state.sel = id;
-    var s = state.byId[id], e = state.els[id];
-    e.g.classList.add("is-sel");
-    var chip = document.querySelector('.chip[data-id="' + id + '"]');
-    if (chip) chip.classList.add("is-sel");
-    showSelBar(s);
-    if (scroll) {
-      var m = document.getElementById("map");
-      var r = m.getBoundingClientRect();
-      var target = r.left + (e.cx / 100) * r.width;
-      var sc = document.getElementById("mapScroll");
-      var cr = sc.getBoundingClientRect();
-      sc.scrollTo({ left: sc.scrollLeft + (target - cr.left) - cr.width / 2, behavior: "smooth" });
-      e.g.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
-  }
-  function clearSel() {
-    if (state.sel && state.els[state.sel]) state.els[state.sel].g.classList.remove("is-sel");
-    var c = document.querySelector(".chip.is-sel");
-    if (c) c.classList.remove("is-sel");
-    state.sel = null;
-    document.getElementById("selBar").hidden = true;
-  }
-  function showSelBar(s) {
-    var z = state.zones.filter(function (v) { return v.id === s.zone; })[0] || { title: "" };
-    var raw = state.status.dates[state.dateIdx].status[s.id];
-    var k = kindOf(raw);
-    var bar = document.getElementById("selBar");
-    bar.innerHTML =
-      '<span class="nm">' + esc(s.label) + "</span>" +
-      '<span class="zk">' + esc(z.title) + "</span>" +
-      '<span class="pill ' + STATUS_CLASS[k] + '">' + esc(statusLabel(raw)) + "</span>" +
-      (k === "ok" ? '<a class="go" href="' + siteBookingUrl(s) + '" target="_blank" rel="noopener" title="이 사이트와 날짜로 네이버 예약 열기">예약하기 ↗</a>' : "") +
-      '<button class="x" type="button" aria-label="닫기">✕</button>';
-    bar.hidden = false;
-    bar.querySelector(".x").addEventListener("click", clearSel);
-  }
-
   /* --- 날짜 렌더 --- */
   function render(i) {
     state.dateIdx = i;
-    clearSel();
     var d = state.status.dates[i];
     syncWeekSel();
-    var c = { ok: 0, confirm: 0, unsold: 0 };
+    var c = { ok: 0, done: 0 };
     var zoneStat = {};
 
     state.sites.forEach(function (s) {
       var raw = d.status[s.id];
-      var k = kindOf(raw);
-      c[k]++;
-      zoneStat[s.zone] = zoneStat[s.zone] || { ok: 0, confirm: 0, unsold: 0, total: 0 };
-      zoneStat[s.zone][k]++;
+      var open = kindOf(raw) === "ok";
+      if (open) c.ok++; else c.done++;
+      zoneStat[s.zone] = zoneStat[s.zone] || { available: 0, done: 0, total: 0 };
+      zoneStat[s.zone][open ? "available" : "done"]++;
       zoneStat[s.zone].total++;
 
       var e = state.els[s.id];
-      e.hit.setAttribute("class", "hit " + STATUS_CLASS[k]);
-      /* 예약완료·미판매는 칸 테두리까지 덮어 색이 남지 않게 한다 */
-      e.hit.setAttribute("points", poly(k === "ok" ? s.points : (s.ring || s.points)));
-      e.g.setAttribute("class", "site st-" + STATUS_CLASS[k]);
-      e.g.setAttribute("aria-label", s.label + " " + statusLabel(raw));
+      e.hit.setAttribute("class", "hit " + (open ? "available" : "done"));
+      /* 예약완료는 칸 테두리까지 덮어 색이 남지 않게 한다 */
+      e.hit.setAttribute("points", poly(open ? s.points : (s.ring || s.points)));
+      e.g.setAttribute("class", "site " + (open ? "available" : "done"));
 
-      var chip = document.querySelector('.chip[data-id="' + s.id + '"]');
-      if (chip) chip.className = "chip " + STATUS_CLASS[k];
+      if (open) {
+        var url = siteBookingUrl(s);
+        e.a.setAttribute("href", url);
+        e.a.setAttributeNS(XLINK, "xlink:href", url);
+        e.a.setAttribute("role", "link");
+        e.a.setAttribute("tabindex", "0");
+        e.a.setAttribute("aria-label", s.label + " 예약가능 · 네이버 예약 열기");
+      } else {
+        e.a.removeAttribute("href");
+        e.a.removeAttributeNS(XLINK, "href");
+        e.a.removeAttribute("role");
+        e.a.removeAttribute("tabindex");
+        e.a.setAttribute("aria-label", s.label + " 예약완료");
+      }
+
+      var chip = state.chips[s.id];
+      if (chip) {
+        if (open) {
+          chip.className = "chip available";
+          chip.setAttribute("href", siteBookingUrl(s));
+          chip.setAttribute("aria-label", s.label + " 예약가능 · 네이버 예약 열기");
+        } else {
+          chip.className = "chip done";
+          chip.removeAttribute("href");
+          chip.setAttribute("aria-label", s.label + " 예약완료");
+        }
+      }
     });
 
     document.getElementById("cAvail").textContent = c.ok;
-    document.getElementById("cConfirm").textContent = c.confirm;
-    document.getElementById("cUnsold").textContent = c.unsold;
+    document.getElementById("cDone").textContent = c.done;
 
     state.zones.forEach(function (z) {
-      var st = zoneStat[z.id] || { ok: 0, confirm: 0, unsold: 0, total: 0 };
+      var st = zoneStat[z.id] || { available: 0, done: 0, total: 0 };
       var card = z._card;
       if (!card) return;
       card.querySelector("[data-nums]").innerHTML =
-        "<b>" + st.ok + "</b> / " + st.total + "면 가능" +
-        (st.confirm ? " · 완료 " + st.confirm : "") +
-        (st.unsold ? " · 불가 " + st.unsold : "");
-      card.querySelector("[data-bar]").style.width = Math.round((st.ok / st.total) * 100) + "%";
+        "<b>" + st.available + "</b> / " + st.total + "면 가능" +
+        (st.done ? " · 완료 " + st.done : "");
+      card.querySelector("[data-bar]").style.width = Math.round((st.available / st.total) * 100) + "%";
     });
 
     document.getElementById("mapTitle").innerHTML = dLabel(d) + "(" + dWeekday(d) + ") 자리 배치도 " +
-      '<em>예약가능 ' + c.ok + "면 · 사이트를 누르면 자세히 보여요</em>";
+      '<em>예약가능 ' + c.ok + "면 · 누르면 바로 예약 페이지로 이동해요</em>";
   }
 
   /* --- 확대 --- */
