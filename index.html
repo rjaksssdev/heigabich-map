@@ -108,6 +108,23 @@
   .day[aria-selected="true"] .w{color:#c6cfdb}
   .day[aria-selected="true"] .n{color:#8ff0b4}
 
+  /* ---------- 연박 드래그 선택 ---------- */
+  .dates, .wk{user-select:none; -webkit-user-select:none}
+  .wk{touch-action:none}
+  .day{
+    touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:pointer;
+  }
+  /* 범위 가운데 칸은 살짝 톤을 달리해 시작·끝이 구분되게 */
+  .day.range-mid{background:#3c4a59; border-color:#3c4a59; color:#fff}
+  .day.range-mid .w{color:#c6cfdb}
+  .day.range-mid .n{color:#8ff0b4}
+  #week.dragging .day{cursor:grabbing}
+  #week.dragging .day:hover{background:#3c4a59}
+  .wk-hint{
+    display:flex; align-items:center; gap:5px; margin:6px 3px 0; font-size:11.5px; color:var(--muted); line-height:1.3;
+  }
+  .wk-hint span{font-weight:800; color:#3d7bd6; letter-spacing:-.04em}
+
   /* ---------- summary ---------- */
   .summary{display:grid; grid-template-columns:repeat(2,1fr); gap:8px}
   .stat{border:1px solid var(--line); background:var(--card); border-radius:15px; padding:9px 12px 10px; box-shadow:var(--shadow)}
@@ -253,6 +270,7 @@
         <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M9 4.5 16.5 12 9 19.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </nav>
+    <p class="wk-hint" id="dragHint"><span aria-hidden="true">↔</span> 날짜를 드래그하면 연박(여러 날)도 한 번에 볼 수 있어요</p>
     <p class="wk-note" id="wkNote" hidden></p>
   </div>
 
@@ -278,7 +296,7 @@
       </div>
     </div>
     <div class="map-foot">
-      <p class="hint" id="hint">초록 테두리가 있는 자리는 그날 예약 가능한 자리예요. 누르면 그 자리와 날짜로 네이버 예약이 새 창에 열려요. 어두운 칸은 예약완료예요.</p>
+      <p class="hint" id="hint">초록 테두리가 있는 자리는 선택한 날짜 전부 예약 가능한 자리예요. 누르면 그 자리·날짜로 네이버 예약이 새 창에 열려요. 어두운 칸은 예약완료예요.</p>
       <button class="zoom" id="zoomBtn" type="button" aria-pressed="false">🔍 확대해서 보기</button>
     </div>
   </section>
@@ -299,7 +317,7 @@
   "use strict";
 
   var state = {
-    sites: [], byId: {}, zones: [], status: null, dateIdx: 0, els: {}, chips: {},
+    sites: [], byId: {}, zones: [], status: null, dateIdx: 0, dateEndIdx: 0, els: {}, chips: {},
     byDate: {}, dateIndex: {}, days: [], pages: 1, page: 0, stale: false
   };
 
@@ -387,15 +405,18 @@
     d.setUTCDate(d.getUTCDate() + n);
     return ymd(d);
   }
-  /* 사이트별 네이버 예약 딥링크: 그 사이트가 선택된 상품 페이지 + 보고 있는 날짜를 1박으로 채운다.
+  /* 사이트별 네이버 예약 딥링크: 그 사이트가 선택된 상품 페이지 + 선택한 범위(연박)를 채운다.
+     startDate = 범위 첫날, endDate = 범위 마지막 날 + 1일(퇴실일).
+     예) 11/27~11/28 드래그 → startDate=2026-11-27&endDate=2026-11-29 (2박)
      (date/sites.json 의 naverItemId 사용 · 미판매 사이트는 캠핑장 전체 예약 페이지로 대체) */
   function siteBookingUrl(s) {
     var base = "https://booking.naver.com/booking/3/bizes/667875";
     var fallback = (state.status && state.status.bookingUrl) || base;
     if (!s || !s.naverItemId) return fallback;
     var url = base + "/items/" + s.naverItemId;
-    var d = state.status.dates[state.dateIdx];
-    if (d && d.date) url += "?startDate=" + d.date + "&endDate=" + addDays(d.date, 1);
+    var a = state.status.dates[state.dateIdx];
+    var b = state.status.dates[state.dateEndIdx] || a;
+    if (a && a.date) url += "?startDate=" + a.date + "&endDate=" + addDays(b.date, 1);
     return url;
   }
   function ymd(d) {
@@ -414,6 +435,48 @@
       if (raw === "예약가능" || raw === "확정" || raw.indexOf("이용완료") >= 0) return true;
     }
     return false;
+  }
+
+  /* --- 연박(연속 날짜) 계산 ---
+     날짜 바에는 운영일만 들어 있어 11/29(일) 다음 칸이 12/4(금) 처럼 띄어질 수 있다.
+     달력상 하루 차이(앞 날짜 + 1일 == 뒤 날짜)인 칸끼리만 연박으로 이어 붙인다. */
+  function linked(i, j) {
+    var a = state.status.dates[i], b = state.status.dates[j];
+    if (!a || !b) return false;
+    var x = i < j ? a.date : b.date, y = i < j ? b.date : a.date;
+    return addDays(x, 1) === y;
+  }
+  /* anchor 에서 한 방향으로 연속이 끊기기 전 마지막 칸 */
+  function runEdge(anchor, dir) {
+    var i = anchor;
+    while (linked(i, i + dir)) i += dir;
+    return i;
+  }
+  /* 드래그한 목표 칸 → 실제로 이어지는 범위 (휴무일을 건너뛴 가짜 다박을 막는다) */
+  function clampRange(anchor, target) {
+    if (target === anchor) return { a: anchor, b: anchor, clamped: false };
+    var edge = runEdge(anchor, target > anchor ? 1 : -1);
+    var end = target, clamped = false;
+    if ((target > anchor && target > edge) || (target < anchor && target < edge)) {
+      end = edge; clamped = true;
+    }
+    return { a: Math.min(anchor, end), b: Math.max(anchor, end), clamped: clamped };
+  }
+  function nightsOf(a, b) { return b - a + 1; }
+  function checkoutOf(b) { return addDays(state.status.dates[b].date, 1); }
+  /* "2026-11-29" → "11/29" */
+  function dateLabel(s) { var p = String(s).split("-"); return (+p[1]) + "/" + (+p[2]); }
+  /* "11/27(금)~11/28(토) · 2박 (11/29 퇴실)" */
+  function rangeLabel(a, b) {
+    var ds = state.status.dates[a], de = state.status.dates[b];
+    var head = dLabel(ds) + "(" + dWeekday(ds) + ")";
+    if (a !== b) head += "~" + dLabel(de) + "(" + dWeekday(de) + ")";
+    return head + " · " + nightsOf(a, b) + "박 (" + dateLabel(checkoutOf(b)) + " 퇴실)";
+  }
+  /* 선택한 모든 날짜가 예약가능일 때만 그 자리가 예약가능 */
+  function rangeOpen(s, a, b) {
+    for (var k = a; k <= b; k++) if (kindOf(state.status.dates[k].status[s.id]) !== "ok") return false;
+    return true;
   }
 
   /* 오늘 이후 운영일만 추린다. (현황이 모두 지난 날이면 마지막 운영일들을 그대로 보여 준다) */
@@ -451,7 +514,12 @@
         '<span class="d">' + (d.getUTCMonth() + 1) + "/" + d.getUTCDate() + "</span>" +
         '<span class="n' + (ok ? "" : " zero") + '">' + ok + "</span>";
       b.setAttribute("aria-label", (d.getUTCMonth() + 1) + "월 " + d.getUTCDate() + "일 " + WD[d.getUTCDay()] + "요일, 예약가능 " + ok + "면");
-      b.addEventListener("click", function () { render(state.dateIndex[this.dataset.date]); });
+      b.addEventListener("click", function (e) {
+        /* 포인터로 누른 경우(탭·드래그)는 pointerup 에서 이미 확정했다.
+           e.detail 이 0 이면 키보드(Enter·Space)로 누른 것이므로 그대로 반영한다. */
+        if (e.detail && Date.now() - (state.lastPointerSel || 0) < 800) return;
+        render(state.dateIndex[this.dataset.date]);
+      });
       box.appendChild(b);
     });
 
@@ -462,18 +530,36 @@
     prev.title = prev.disabled ? "앞쪽 날짜가 더 없어요" : "앞 날짜 보기";
     next.title = next.disabled ? "뒤쪽 날짜가 더 없어요" : "뒤 날짜 보기";
 
-    var note = document.getElementById("wkNote");
-    note.hidden = !state.stale;
-    if (state.stale) note.textContent = "예약 현황이 갱신되기 전이라 최근 운영일을 보여 주고 있어요.";
+    setNote(null);
 
     syncWeekSel();
   }
 
-  function syncWeekSel() {
-    var cur = state.status.dates[state.dateIdx].date;
+  /* 날짜 바 아래 안내줄: 기본(갱신 지연) 안내와 드래그 안내가 한 줄을 함께 쓴다 */
+  function setNote(msg) {
+    var note = document.getElementById("wkNote");
+    if (msg) {
+      note.textContent = msg; note.hidden = false; return;
+    }
+    if (state.stale) {
+      note.textContent = "예약 현황이 갱신되기 전이라 최근 운영일을 보여 주고 있어요."; note.hidden = false; return;
+    }
+    note.textContent = ""; note.hidden = true;
+  }
+
+  /* 선택 범위(연박 포함)를 날짜 바에 표시 */
+  function syncWeekSel(a, b) {
+    if (a == null) a = state.dateIdx;
+    if (b == null) b = state.dateEndIdx;
+    var lo = Math.min(a, b), hi = Math.max(a, b);
+    var from = state.status.dates[lo].date, to = state.status.dates[hi].date;
     var cells = document.querySelectorAll("#week .day");
     for (var i = 0; i < cells.length; i++) {
-      cells[i].setAttribute("aria-selected", cells[i].dataset.date === cur ? "true" : "false");
+      var dc = cells[i].dataset.date;
+      var inR = dc >= from && dc <= to;
+      cells[i].setAttribute("aria-selected", inR ? "true" : "false");
+      cells[i].classList.toggle("range-edge", inR && (dc === from || dc === to));
+      cells[i].classList.toggle("range-mid", inR && dc !== from && dc !== to);
     }
   }
 
@@ -525,16 +611,18 @@
   }
 
   /* --- 날짜 렌더 --- */
-  function render(i) {
-    state.dateIdx = i;
-    var d = state.status.dates[i];
-    syncWeekSel();
+  /* a ~ b (연속 날짜, 양끝 포함) 범위로 화면 전체를 다시 그린다. b 를 빼면 1박 */
+  function render(a, b) {
+    if (b == null || b < a) b = a;
+    state.dateIdx = a; state.dateEndIdx = b;
+    var d = state.status.dates[a];
+    var multi = b > a;
+    syncWeekSel(a, b);
     var c = { ok: 0, done: 0 };
     var zoneStat = {};
 
     state.sites.forEach(function (s) {
-      var raw = d.status[s.id];
-      var open = kindOf(raw) === "ok";
+      var open = multi ? rangeOpen(s, a, b) : kindOf(d.status[s.id]) === "ok";
       if (open) c.ok++; else c.done++;
       zoneStat[s.zone] = zoneStat[s.zone] || { available: 0, done: 0, total: 0 };
       zoneStat[s.zone][open ? "available" : "done"]++;
@@ -588,7 +676,8 @@
       card.querySelector("[data-bar]").style.width = Math.round((st.available / st.total) * 100) + "%";
     });
 
-    document.getElementById("mapTitle").innerHTML = dLabel(d) + "(" + dWeekday(d) + ") 자리 배치도 " +
+    var title = multi ? rangeLabel(a, b) : dLabel(d) + "(" + dWeekday(d) + ") 자리 배치도";
+    document.getElementById("mapTitle").innerHTML = title + " " +
       '<em>예약가능 ' + c.ok + "면 · 누르면 바로 예약 페이지로 이동해요</em>";
   }
 
@@ -596,6 +685,85 @@
   function initWeek() {
     document.getElementById("prevWeek").addEventListener("click", function () { movePage(-1); });
     document.getElementById("nextWeek").addEventListener("click", function () { movePage(1); });
+  }
+
+  /* --- 날짜 드래그로 연박 선택 (PC 마우스 · 모바일 터치 공통, Pointer Events) ---
+     누른 날짜가 기준점, 손을 뗀 날짜가 반대 끝. 이동 없이 떼면 1박. */
+  function initDrag() {
+    var week = document.getElementById("week");
+    var drag = null;
+
+    function idxOf(node) {
+      var btn = node && node.closest ? node.closest("#week .day") : null;
+      if (!btn || !btn.dataset.date) return -1;
+      var i = state.dateIndex[btn.dataset.date];
+      return i == null ? -1 : i;
+    }
+    /* 포인터 아래에 있는 날짜 칸 (손가락이 칸 사이 여백에 있어도 가장 가까운 칸을 찾는다) */
+    function atPoint(x, y) {
+      var i = idxOf(document.elementFromPoint(x, y));
+      if (i >= 0) return i;
+      var cells = document.querySelectorAll("#week .day"), best = -1, bestD = 1e9;
+      for (var k = 0; k < cells.length; k++) {
+        var r = cells[k].getBoundingClientRect();
+        var cx = Math.max(r.left, Math.min(x, r.right)), cy = Math.max(r.top, Math.min(y, r.bottom));
+        var d = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+        if (d < bestD) { bestD = d; best = k; }
+      }
+      if (best < 0 || bestD > 26 * 26) return -1;
+      var dd = cells[best].dataset.date;
+      return state.dateIndex[dd] == null ? -1 : state.dateIndex[dd];
+    }
+    function clampMsg(b) {
+      var x = state.status.dates[b];
+      return "휴무일이 끼어 있어 " + dLabel(x) + "(" + dWeekday(x) + ")까지만 연박으로 이어져요.";
+    }
+
+    week.addEventListener("pointerdown", function (e) {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      var i = idxOf(e.target);
+      if (i < 0) return;
+      drag = { id: e.pointerId, anchor: i, a: i, b: i, clamped: false, prevA: state.dateIdx, prevB: state.dateEndIdx };
+      try { week.setPointerCapture(e.pointerId); } catch (err) {}
+      week.classList.add("dragging");
+      syncWeekSel(i, i);
+      setNote(null);
+      /* 드래그 중 글자 선택·페이지 스크롤이 끼어들지 않게 한다 (확정은 pointerup 에서) */
+      e.preventDefault();
+    });
+
+    document.addEventListener("pointermove", function (e) {
+      if (!drag || drag.id !== e.pointerId) return;
+      var j = atPoint(e.clientX, e.clientY);
+      if (j < 0) return;
+      var r = clampRange(drag.anchor, j);
+      if (r.a === drag.a && r.b === drag.b && r.clamped === drag.clamped) return;
+      drag.a = r.a; drag.b = r.b; drag.clamped = r.clamped;
+      /* 드래그 중에도 가용 현황을 바로 보여 준다 */
+      if (r.a !== drag.prevA || r.b !== drag.prevB) render(r.a, r.b);
+      else syncWeekSel(r.a, r.b);
+      setNote(r.clamped ? clampMsg(r.b) : null);
+    });
+
+    function finish(e, canceled) {
+      if (!drag || drag.id !== e.pointerId) return;
+      var g = drag;
+      drag = null;
+      week.classList.remove("dragging");
+      try { week.releasePointerCapture(e.pointerId); } catch (err) {}
+      if (canceled) { render(g.prevA, g.prevB); setNote(null); return; }
+      var j = atPoint(e.clientX, e.clientY);
+      if (j >= 0) {
+        var r = clampRange(g.anchor, j);
+        g.a = r.a; g.b = r.b; g.clamped = r.clamped;
+      }
+      state.lastPointerSel = Date.now();
+      render(g.a, g.b);
+      setNote(g.clamped ? clampMsg(g.b) : null);
+    }
+
+    document.addEventListener("pointerup", function (e) { finish(e, false); });
+    document.addEventListener("pointercancel", function (e) { finish(e, true); });
   }
 
   function initZoom() {
@@ -663,6 +831,7 @@
       buildMap();
       buildZones();
       initWeek();
+      initDrag();
       buildDays();
       var first = state.days[0] || state.status.dates[state.status.dates.length - 1];
       buildPage();
