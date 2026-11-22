@@ -135,8 +135,9 @@
   .ov g.st-available .ring{stroke:var(--avail)}
   .ov g.st-confirmed .ring{stroke:var(--confirm)}
   .ov g.st-unsold .ring{stroke:#5c6675}
-  .ov g:focus-visible{outline:none}
-  .ov g:focus-visible .ring{opacity:1; stroke:#0c63e4}
+  .ov g:focus{outline:none}
+  .ov g:focus .ring{opacity:1}
+  .ov g:focus-visible .ring{stroke:#0c63e4}
 
   .tags{position:absolute; inset:0; pointer-events:none}
   .tag{
