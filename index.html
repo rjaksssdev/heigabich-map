@@ -125,33 +125,22 @@
   .map-scroll.is-zoomed .map{width:172%}
   .map img{position:absolute; inset:0; width:100%; height:100%; display:block; user-select:none; -webkit-user-drag:none; pointer-events:none}
   .ov{position:absolute; inset:0; width:100%; height:100%; display:block; overflow:visible}
+  /* 예약가능: 원본 색 그대로 + 에메랄드 테두리, 예약완료·미판매: 배지 없이 칸만 톤다운 */
   .ov .hit{fill:transparent; cursor:pointer; transition:fill .15s ease}
-  .ov .ring{fill:none; stroke-width:2; opacity:0; transition:opacity .15s ease; pointer-events:none}
-  .ov .hit.available:hover{fill:rgba(18,161,80,.16)}
-  .ov .hit.confirmed{fill:rgba(22,28,38,.6)}
-  .ov .hit.unsold{fill:rgba(112,122,136,.46)}
-  .ov g.is-sel .ring{opacity:1}
-  .ov g.is-sel .hit.available{fill:rgba(18,161,80,.26)}
-  .ov g.st-available .ring{stroke:var(--avail)}
-  .ov g.st-confirmed .ring{stroke:var(--confirm)}
-  .ov g.st-unsold .ring{stroke:#5c6675}
+  .ov .ring{
+    fill:none; stroke-width:2; opacity:0; pointer-events:none;
+    transition:opacity .15s ease, stroke .15s ease, stroke-width .15s ease;
+  }
+  .ov g.st-available .ring{stroke:var(--avail); opacity:.92}
+  .ov .hit.available:hover{fill:rgba(18,161,80,.14)}
+  .ov .hit.confirmed{fill:rgba(84,94,108,.5)}
+  .ov .hit.unsold{fill:rgba(203,210,218,.8)}
+  .ov g:hover .hit.confirmed{fill:rgba(84,94,108,.42)}
+  .ov g:hover .hit.unsold{fill:rgba(203,210,218,.68)}
+  .ov g.is-sel .ring{opacity:1; stroke:var(--ink); stroke-width:3}
+  .ov g.is-sel .hit.available{fill:rgba(18,161,80,.2)}
   .ov g:focus{outline:none}
-  .ov g:focus .ring{opacity:1}
-  .ov g:focus-visible .ring{stroke:#0c63e4}
-
-  .tags{position:absolute; inset:0; pointer-events:none}
-  .tag{
-    position:absolute; transform:translate(-50%,-100%); white-space:nowrap; font-weight:800; letter-spacing:-.02em;
-    border-radius:999px; padding:.22em .58em; line-height:1.1; font-size:calc(var(--mw) * 0.0112px);
-    box-shadow:0 3px 8px -2px rgba(0,0,0,.35); margin-top:-2px;
-  }
-  .tag-confirmed{background:var(--confirm); color:#fff}
-  .tag-confirmed::after{content:""; position:absolute; left:50%; bottom:-3px; transform:translateX(-50%); width:0; height:0; border:3.5px solid transparent; border-top-color:var(--confirm); border-bottom:0}
-  .tag-unsold{
-    transform:translate(-50%,-50%); margin:0; background:rgba(56,62,72,.86); color:#f2f4f7;
-    box-shadow:0 2px 6px -3px rgba(0,0,0,.5); font-weight:700; font-size:calc(var(--mw) * 0.0102px); padding:.2em .48em;
-  }
-  .tag-hidden{display:none}
+  .ov g:focus-visible .ring{opacity:1; stroke:#0c63e4}
   .sel-bar[hidden]{display:none}
 
   .map-foot{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:9px; flex-wrap:wrap}
@@ -219,10 +208,10 @@
   @media (max-width:719px){
     .hero-top{flex-wrap:wrap}
     .cta{width:100%; justify-content:center; margin-top:12px; padding:11px 14px}
-    .tag{font-size:calc(var(--mw) * 0.0125px)}
-    .tag-unsold{font-size:calc(var(--mw) * 0.0112px)}
     .zone-nums{margin-left:0; text-align:left; width:100%; margin-top:6px}
     .zone-head{flex-wrap:wrap}
+    .ov .ring{stroke-width:1.6}
+    .ov g.is-sel .ring{stroke-width:2.4}
   }
   @media (max-width:400px){
     body{padding:10px 10px calc(22px + env(safe-area-inset-bottom))}
@@ -276,12 +265,11 @@
         <div class="map" id="map">
           <img id="mapImg" src="assets/map.png" alt="해가빛 캠핑장 배치도 (37개 사이트)" decoding="async">
           <svg class="ov" id="ov" viewBox="0 0 100 100" preserveAspectRatio="none" role="group" aria-label="배치도 사이트"></svg>
-          <div class="tags" id="tags"></div>
         </div>
       </div>
     </div>
     <div class="map-foot">
-      <p class="hint" id="hint">배치도의 색이 진한 사이트는 그날 예약이 찬 자리예요.</p>
+      <p class="hint" id="hint">초록 테두리가 있는 자리가 그날 예약 가능한 자리예요. 어두운 칸은 예약완료, 흐린 칸은 미판매예요.</p>
       <button class="zoom" id="zoomBtn" type="button" aria-pressed="false">🔍 확대해서 보기</button>
     </div>
     <div class="sel-bar" id="selBar" hidden></div>
@@ -337,10 +325,9 @@
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
 
-  /* --- 좌표 데이터로 SVG 마커 + 태그 만들기 --- */
+  /* --- 좌표 데이터로 SVG 마커 만들기 --- */
   function buildMap() {
     var NS = "http://www.w3.org/2000/svg";
-    var tagsBox = document.getElementById("tags");
     var frag = document.createDocumentFragment();
 
     state.sites.forEach(function (s) {
@@ -363,14 +350,9 @@
       g.appendChild(hit);
       frag.appendChild(g);
 
-      var tag = document.createElement("span");
-      tag.className = "tag tag-hidden";
-      tagsBox.appendChild(tag);
-
       state.els[s.id] = {
-        g: g, hit: hit, ring: ring, tag: tag,
-        cx: avg(s.points, 0), top: Math.min.apply(null, s.points.map(function (p) { return p[1]; })),
-        cy: avg(s.points, 1)
+        g: g, hit: hit, ring: ring,
+        cx: avg(s.points, 0)
       };
     });
     el.appendChild(frag);
@@ -512,20 +494,6 @@
       e.hit.setAttribute("class", "hit " + STATUS_CLASS[k]);
       e.g.setAttribute("class", "site st-" + STATUS_CLASS[k]);
       e.g.setAttribute("aria-label", s.label + " " + STATUS_LABEL[k]);
-      if (k === "confirm") {
-        e.tag.className = "tag tag-confirmed";
-        e.tag.textContent = "예약완료";
-        e.tag.style.left = e.cx + "%";
-        e.tag.style.top = e.top + "%";
-      } else if (k === "unsold") {
-        e.tag.className = "tag tag-unsold";
-        e.tag.textContent = "미판매";
-        e.tag.style.left = e.cx + "%";
-        e.tag.style.top = e.cy + "%";
-      } else {
-        e.tag.className = "tag tag-hidden";
-        e.tag.textContent = "";
-      }
 
       var chip = document.querySelector('.chip[data-id="' + s.id + '"]');
       if (chip) chip.className = "chip " + STATUS_CLASS[k];
