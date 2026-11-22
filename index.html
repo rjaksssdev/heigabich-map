@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>해가빛 캠핑장 실시간 자리 현황</title>
+<meta name="description" content="해가빛 캠핑장(충남 서천) 실시간 예약 현황 배치도. 날짜별로 예약 가능한 사이트를 한눈에 확인하고 네이버 예약으로 바로 이동하세요.">
+<meta name="theme-color" content="#ffffff">
+<meta property="og:type" content="website">
+<meta property="og:title" content="해가빛 캠핑장 실시간 자리 현황">
+<meta property="og:description" content="날짜를 고르면 예약 가능한 사이트가 배치도에 바로 표시됩니다.">
+<meta property="og:image" content="https://rjaksssdev.github.io/heigabich-map/assets/map.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='88'%3E%E2%9B%BA%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root{
+    --bg:#eef1f5;
+    --card:#ffffff;
+    --ink:#16202b;
+    --ink-2:#3d4a58;
+    --muted:#6b7785;
+    --line:#e5e9ee;
+    --avail:#12a150;
+    --avail-bg:#f1fbf5;
+    --avail-line:#c9eed8;
+    --confirm:#e03131;
+    --confirm-bg:#fff5f5;
+    --confirm-line:#ffd6d6;
+    --unsold:#7b8695;
+    --unsold-bg:#f4f5f7;
+    --unsold-line:#e3e6ea;
+    --naver:#03c75a;
+    --sun:#f59f00;
+    --radius:20px;
+    --shadow:0 1px 2px rgba(16,24,40,.05), 0 10px 28px -18px rgba(16,24,40,.35);
+    --mw:900;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,system-ui,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+    font-size:15px; line-height:1.45; letter-spacing:-.01em;
+    padding:14px 14px calc(28px + env(safe-area-inset-bottom));
+  }
+  .wrap{max-width:1080px; margin:0 auto; display:flex; flex-direction:column; gap:12px}
+  a{color:inherit; text-decoration:none}
+  button{font:inherit; color:inherit; cursor:pointer; border:0; background:none; padding:0}
+
+  /* ---------- header ---------- */
+  .hero{
+    background:radial-gradient(120% 140% at 100% 0%, #fff6df 0%, #fffdf8 38%, #fff 72%);
+    border:1px solid #f1e9d8; border-radius:var(--radius); padding:16px 18px 18px; box-shadow:var(--shadow);
+  }
+  .hero-top{display:flex; align-items:center; gap:12px; justify-content:space-between}
+  .brand{display:flex; align-items:center; gap:11px; min-width:0}
+  .mark{
+    flex:0 0 auto; width:40px; height:40px; border-radius:13px; display:grid; place-items:center; font-size:20px;
+    background:linear-gradient(150deg,#ffd43b,#f59f00 70%); box-shadow:0 6px 14px -8px rgba(245,159,0,.9);
+  }
+  h1{margin:0; font-size:clamp(17px,4.4vw,21px); font-weight:800; letter-spacing:-.03em; display:flex; align-items:center; gap:7px; flex-wrap:wrap}
+  .live{
+    display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; letter-spacing:0;
+    color:#0b8a44; background:#e9f9ef; border:1px solid #b7ebc9; border-radius:999px; padding:2px 8px 2px 6px; vertical-align:2px;
+  }
+  .live i{width:6px; height:6px; border-radius:50%; background:#12a150; box-shadow:0 0 0 0 rgba(18,161,80,.6); animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(18,161,80,.55)}70%{box-shadow:0 0 0 7px rgba(18,161,80,0)}100%{box-shadow:0 0 0 0 rgba(18,161,80,0)}}
+  .sub{margin:2px 0 0; font-size:12.5px; color:var(--muted)}
+  .cta{
+    flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; background:var(--naver); color:#fff;
+    font-weight:800; font-size:13.5px; padding:10px 14px; border-radius:12px; box-shadow:0 8px 18px -10px rgba(3,199,90,.9);
+    transition:transform .12s ease, filter .12s ease;
+  }
+  .cta:active{transform:scale(.97)}
+  .cta:hover{filter:brightness(1.04)}
+  .meta-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-top:14px; font-size:12px; color:var(--muted)}
+  .meta-row .dot{width:3px;height:3px;border-radius:50%;background:#c6cdd6; display:inline-block; margin:0 7px; vertical-align:3px}
+
+  /* ---------- date tabs ---------- */
+  .dates-wrap{position:sticky; top:8px; z-index:40}
+  .dates{
+    display:flex; gap:7px; overflow-x:auto; padding:6px; background:rgba(255,255,255,.94);
+    border:1px solid var(--line); border-radius:16px; box-shadow:0 6px 20px -16px rgba(16,24,40,.6);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); scrollbar-width:none;
+  }
+  .dates::-webkit-scrollbar{display:none}
+  .tab{
+    flex:0 0 auto; display:flex; align-items:center; gap:7px; padding:8px 11px; border-radius:11px;
+    border:1px solid transparent; color:var(--ink-2); font-weight:700; transition:background .15s ease, color .15s ease;
+  }
+  .tab:hover{background:#f4f6f8}
+  .tab .d{font-size:14.5px; letter-spacing:-.02em}
+  .tab .w{font-size:11.5px; font-weight:600; color:var(--muted)}
+  .tab .n{font-size:11px; font-weight:800; color:#0b8a44; background:var(--avail-bg); border:1px solid var(--avail-line); border-radius:999px; padding:0 6px; min-width:20px; text-align:center}
+  .tab[aria-selected="true"]{background:var(--ink); color:#fff; border-color:var(--ink)}
+  .tab[aria-selected="true"] .w{color:#b9c4d1}
+  .tab[aria-selected="true"] .n{color:#8ff0b4; background:rgba(255,255,255,.13); border-color:rgba(255,255,255,.2)}
+
+  /* ---------- summary ---------- */
+  .summary{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+  .stat{border:1px solid var(--line); background:var(--card); border-radius:15px; padding:9px 12px 10px; box-shadow:var(--shadow)}
+  .stat .k{display:flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:var(--muted)}
+  .stat .k i{width:8px;height:8px;border-radius:3px;display:inline-block}
+  .stat b{display:block; font-size:clamp(19px,5.6vw,23px); font-weight:800; letter-spacing:-.03em; font-variant-numeric:tabular-nums; line-height:1.2; margin-top:1px}
+  .stat b span{font-size:12px; font-weight:700; color:var(--muted); margin-left:1px}
+  .stat.avail{border-color:var(--avail-line); background:var(--avail-bg)} .stat.avail b{color:#0b8a44} .stat.avail .k i{background:var(--avail)}
+  .stat.confirm{border-color:var(--confirm-line); background:var(--confirm-bg)} .stat.confirm b{color:#c92a2a} .stat.confirm .k i{background:var(--confirm)}
+  .stat.unsold{background:var(--unsold-bg); border-color:var(--unsold-line)} .stat.unsold b{color:#5c6675} .stat.unsold .k i{background:#aab3be}
+
+  /* ---------- card / map ---------- */
+  .card{background:var(--card); border-radius:var(--radius); border:1px solid var(--line); box-shadow:var(--shadow); padding:14px}
+  .card-head{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px}
+  h2{margin:0; font-size:15.5px; font-weight:800; letter-spacing:-.02em}
+  h2 em{font-style:normal; color:var(--muted); font-weight:600; font-size:12.5px; margin-left:4px}
+  .legend{display:flex; align-items:center; gap:11px; flex-wrap:wrap; font-size:12px; color:var(--muted); font-weight:600}
+  .lg{display:inline-flex; align-items:center; gap:5px}
+  .lg i{width:13px; height:13px; border-radius:4px; display:inline-block; border:1px solid rgba(0,0,0,.08)}
+  .lg i.av{background:#eaf7ee; border-color:#bfe6cd; box-shadow:inset 0 0 0 1.5px var(--avail)}
+  .lg i.co{background:#3b4450}
+  .lg i.un{background:#c9d0d9}
+
+  .map-shell{position:relative}
+  .map-scroll{position:relative; overflow:auto; border-radius:14px; background:#fff; border:1px solid var(--line); -webkit-overflow-scrolling:touch}
+  .map{position:relative; width:100%; aspect-ratio:1262 / 982; min-width:0; transition:width .18s ease}
+  .map-scroll.zoom .map{width:172%}
+  .map img{position:absolute; inset:0; width:100%; height:100%; display:block; user-select:none; -webkit-user-drag:none; pointer-events:none}
+  .ov{position:absolute; inset:0; width:100%; height:100%; display:block; overflow:visible}
+  .ov .hit{fill:transparent; cursor:pointer; transition:fill .15s ease}
+  .ov .ring{fill:none; stroke-width:2; opacity:0; transition:opacity .15s ease; pointer-events:none}
+  .ov .hit.available:hover{fill:rgba(18,161,80,.16)}
+  .ov .hit.confirmed{fill:rgba(22,28,38,.6)}
+  .ov .hit.unsold{fill:rgba(112,122,136,.46)}
+  .ov g.is-sel .ring{opacity:1}
+  .ov g.is-sel .hit.available{fill:rgba(18,161,80,.26)}
+  .ov g.st-available .ring{stroke:var(--avail)}
+  .ov g.st-confirmed .ring{stroke:var(--confirm)}
+  .ov g.st-unsold .ring{stroke:#5c6675}
+  .ov g:focus-visible{outline:none}
+  .ov g:focus-visible .ring{opacity:1; stroke:#0c63e4}
+
+  .tags{position:absolute; inset:0; pointer-events:none}
+  .tag{
+    position:absolute; transform:translate(-50%,-100%); white-space:nowrap; font-weight:800; letter-spacing:-.02em;
+    border-radius:999px; padding:.22em .58em; line-height:1.1; font-size:calc(var(--mw) * 0.0112px);
+    box-shadow:0 3px 8px -2px rgba(0,0,0,.35); margin-top:-2px;
+  }
+  .tag-confirmed{background:var(--confirm); color:#fff}
+  .tag-confirmed::after{content:""; position:absolute; left:50%; bottom:-3px; transform:translateX(-50%); width:0; height:0; border:3.5px solid transparent; border-top-color:var(--confirm); border-bottom:0}
+  .tag-unsold{
+    transform:translate(-50%,-50%); margin:0; background:rgba(255,255,255,.88); color:#495057;
+    border:1px solid rgba(0,0,0,.07); box-shadow:none; font-weight:700; font-size:calc(var(--mw) * 0.0098px); padding:.22em .5em;
+  }
+  .tag-hidden{display:none}
+  .sel-bar[hidden]{display:none}
+
+  .map-foot{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:9px; flex-wrap:wrap}
+  .hint{margin:0; font-size:12px; color:var(--muted)}
+  .zoom{
+    display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:700; color:var(--ink-2);
+    border:1px solid var(--line); background:#fff; border-radius:10px; padding:7px 11px;
+  }
+  .zoom:hover{background:#f7f9fa}
+
+  .sel-bar{
+    display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:10px; padding:10px 12px;
+    border-radius:13px; background:#f7f9fb; border:1px solid var(--line); animation:fade .18s ease;
+  }
+  @keyframes fade{from{opacity:0; transform:translateY(-3px)}to{opacity:1; transform:none}}
+  .sel-bar .nm{font-weight:800; font-size:14.5px}
+  .sel-bar .zk{font-size:12.5px; color:var(--muted)}
+  .sel-bar .pill{font-size:12px; font-weight:800; border-radius:999px; padding:3px 9px; border:1px solid}
+  .sel-bar .pill.available{color:#0b8a44; background:var(--avail-bg); border-color:var(--avail-line)}
+  .sel-bar .pill.confirmed{color:#c92a2a; background:var(--confirm-bg); border-color:var(--confirm-line)}
+  .sel-bar .pill.unsold{color:#5c6675; background:var(--unsold-bg); border-color:var(--unsold-line)}
+  .sel-bar .go{margin-left:auto; font-size:12.5px; font-weight:800; color:#0b8a44}
+  .sel-bar .x{margin-left:auto; color:var(--muted); font-size:16px; line-height:1; padding:2px 4px}
+  .sel-bar .go + .x{margin-left:6px}
+
+  /* ---------- zones ---------- */
+  .zones{display:grid; grid-template-columns:1fr; gap:12px}
+  .zone{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:14px; box-shadow:var(--shadow)}
+  .zone-head{display:flex; align-items:flex-start; gap:9px; margin-bottom:10px}
+  .zone-head .sw{flex:0 0 auto; width:11px; height:11px; border-radius:4px; margin-top:5px}
+  .zone-head h3{margin:0; font-size:14.5px; font-weight:800; letter-spacing:-.02em}
+  .zone-head p{margin:1px 0 0; font-size:12px; color:var(--muted)}
+  .zone-nums{margin-left:auto; text-align:right; font-size:11.5px; color:var(--muted); white-space:nowrap; line-height:1.35}
+  .zone-nums b{color:#0b8a44; font-size:12.5px}
+  .bar{height:5px; border-radius:99px; background:#eef1f4; overflow:hidden; margin:0 0 11px}
+  .bar span{display:block; height:100%; border-radius:99px; background:linear-gradient(90deg,#3ec177,#12a150)}
+  .chips{display:flex; flex-wrap:wrap; gap:6px}
+  .chip{
+    display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:700; letter-spacing:-.01em;
+    padding:5px 9px; border-radius:9px; border:1px solid; transition:transform .1s ease;
+  }
+  .chip:active{transform:scale(.96)}
+  .chip.available{color:#0b6b37; background:#f1fbf5; border-color:#d3f0de}
+  .chip.confirmed{color:#fff; background:#e03131; border-color:#c92a2a}
+  .chip.unsold{color:#77808c; background:#f4f5f7; border-color:#e6e9ec; text-decoration:line-through}
+  .chip.is-sel{outline:2px solid #16202b; outline-offset:1px}
+
+  /* ---------- footer ---------- */
+  .foot{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:15px 16px; box-shadow:var(--shadow); font-size:12.5px; color:var(--muted); line-height:1.7}
+  .foot b{color:var(--ink); font-weight:700}
+  .foot a.link{color:#0b6b37; font-weight:700; text-decoration:underline; text-underline-offset:2px}
+  .foot .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  .foot .sep{height:1px; background:var(--line); margin:10px 0}
+  .err{margin:0; padding:16px; text-align:center; color:#c92a2a; font-size:13px}
+
+  /* ---------- responsive ---------- */
+  @media (min-width:720px){
+    body{padding:20px; font-size:15.5px}
+    .wrap{gap:14px}
+    .hero{padding:18px 22px 20px}
+    .card{padding:18px}
+    .zones{grid-template-columns:repeat(3,1fr)}
+    .map-foot{margin-top:10px}
+  }
+  @media (max-width:719px){
+    .hero-top{flex-wrap:wrap}
+    .cta{width:100%; justify-content:center; margin-top:12px; padding:11px 14px}
+    .tag{font-size:calc(var(--mw) * 0.0125px)}
+    .tag-unsold{font-size:calc(var(--mw) * 0.0108px)}
+    .zone-nums{margin-left:0; text-align:left; width:100%; margin-top:6px}
+    .zone-head{flex-wrap:wrap}
+  }
+  @media (max-width:400px){
+    body{padding:10px 10px calc(22px + env(safe-area-inset-bottom))}
+    .summary{gap:6px}
+    .stat{padding:8px 9px}
+  }
+  @media print{.dates-wrap{position:static} .zoom{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="hero-top">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">⛺</div>
+        <div>
+          <h1>해가빛 캠핑장 <span class="live"><i></i>실시간</span></h1>
+          <p class="sub">충남 서천 · 네이버 예약 현황 · 총 37개 사이트</p>
+        </div>
+      </div>
+      <a class="cta" id="ctaTop" href="https://booking.naver.com/booking/3/bizes/667875" target="_blank" rel="noopener">네이버 예약 바로가기 <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="meta-row">
+      <span id="updated">예약 현황 불러오는 중…</span>
+    </div>
+  </header>
+
+  <div class="dates-wrap">
+    <nav class="dates" id="dates" role="tablist" aria-label="날짜 선택"></nav>
+  </div>
+
+  <section class="summary" id="summary" aria-label="선택 날짜 요약">
+    <div class="stat avail"><div class="k"><i></i>예약가능</div><b id="cAvail">–</b></div>
+    <div class="stat confirm"><div class="k"><i></i>예약완료</div><b id="cConfirm">–</b></div>
+    <div class="stat unsold"><div class="k"><i></i>미판매</div><b id="cUnsold">–</b></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2 id="mapTitle">자리 배치도 <em>사이트를 누르면 자세히 보여요</em></h2>
+      <div class="legend">
+        <span class="lg"><i class="av"></i>예약가능</span>
+        <span class="lg"><i class="co"></i>예약완료</span>
+        <span class="lg"><i class="un"></i>미판매</span>
+      </div>
+    </div>
+    <div class="map-shell">
+      <div class="map-scroll" id="mapScroll">
+        <div class="map" id="map">
+          <img id="mapImg" src="assets/map.png" alt="해가빛 캠핑장 배치도 (37개 사이트)" decoding="async">
+          <svg class="ov" id="ov" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <div class="tags" id="tags"></div>
+        </div>
+      </div>
+    </div>
+    <div class="map-foot">
+      <p class="hint" id="hint">배치도의 색이 진한 사이트는 그날 예약이 찬 자리예요.</p>
+      <button class="zoom" id="zoomBtn" type="button" aria-pressed="false">🔍 확대해서 보기</button>
+    </div>
+    <div class="sel-bar" id="selBar" hidden></div>
+  </section>
+
+  <section class="zones" id="zones" aria-label="존별 잔여 현황"></section>
+
+  <footer class="foot">
+    <div class="row"><b>해가빛 캠핑장</b> <span>충남 서천군 서면 갯벌체험로 56-14</span></div>
+    <div class="row"><span>전화 <b>010-5050-5404</b></span> <span>·</span> <a class="link" href="https://cafe.naver.com/heigabichcamping" target="_blank" rel="noopener">네이버 카페</a> <span>·</span> <a class="link" id="ctaFoot" href="https://booking.naver.com/booking/3/bizes/667875" target="_blank" rel="noopener">네이버 예약</a></div>
+    <div class="sep"></div>
+    <div>예약 현황은 <b>네이버 예약</b> 기준으로 주기적으로 갱신됩니다. 화면을 본 시점과 결제 시점 사이에 자리가 마감될 수 있으니, 예약 전 네이버 예약에서 한 번 더 확인해 주세요.</div>
+    <div id="footNote" style="margin-top:6px"></div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STATUS_LABEL = { ok: "예약가능", confirm: "예약완료", unsold: "미판매" };
+  var STATUS_CLASS = { ok: "available", confirm: "confirmed", unsold: "unsold" };
+  var state = { sites: [], byId: {}, zones: [], status: null, dateIdx: 0, sel: null, els: {} };
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var el = document.getElementById("ov");
+
+  function kindOf(raw) {
+    if (raw === "확정") return "confirm";
+    if (raw === "예약가능") return "ok";
+    if (raw && raw.indexOf("미판매") >= 0) return "unsold";
+    return "ok";
+  }
+  function poly(pts) { return pts.map(function (p) { return p[0] + "," + p[1]; }).join(" "); }
+  function avg(pts, i) { return pts.reduce(function (a, p) { return a + p[i]; }, 0) / pts.length; }
+  function fmtDate(d) {
+    var p = d.split("-");
+    return p[0] + "년 " + (+p[1]) + "월 " + (+p[2]) + "일";
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
+
+  /* --- 좌표 데이터로 SVG 마커 + 태그 만들기 --- */
+  function buildMap() {
+    var NS = "http://www.w3.org/2000/svg";
+    var tagsBox = document.getElementById("tags");
+    var frag = document.createDocumentFragment();
+
+    state.sites.forEach(function (s) {
+      var g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "site");
+      g.setAttribute("data-id", s.id);
+      g.setAttribute("tabindex", "0");
+      g.setAttribute("role", "button");
+
+      var ring = document.createElementNS(NS, "polygon");
+      ring.setAttribute("class", "ring");
+      ring.setAttribute("points", poly(s.ring || s.points));
+      ring.setAttribute("vector-effect", "non-scaling-stroke");
+
+      var hit = document.createElementNS(NS, "polygon");
+      hit.setAttribute("class", "hit");
+      hit.setAttribute("points", poly(s.points));
+
+      g.appendChild(ring);
+      g.appendChild(hit);
+      frag.appendChild(g);
+
+      var tag = document.createElement("span");
+      tag.className = "tag tag-hidden";
+      tagsBox.appendChild(tag);
+
+      state.els[s.id] = {
+        g: g, hit: hit, ring: ring, tag: tag,
+        cx: avg(s.points, 0), top: Math.min.apply(null, s.points.map(function (p) { return p[1]; })),
+        cy: avg(s.points, 1)
+      };
+    });
+    el.appendChild(frag);
+
+    el.addEventListener("click", function (e) {
+      var g = e.target.closest ? e.target.closest("g.site") : null;
+      if (g) select(g.getAttribute("data-id"));
+    });
+    el.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      var g = e.target.closest ? e.target.closest("g.site") : null;
+      if (!g) return;
+      e.preventDefault();
+      select(g.getAttribute("data-id"));
+    });
+  }
+
+  /* --- 날짜 탭 --- */
+  function buildTabs() {
+    var nav = document.getElementById("dates");
+    nav.innerHTML = "";
+    state.status.dates.forEach(function (d, i) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "tab";
+      b.setAttribute("role", "tab");
+      b.dataset.i = i;
+      b.innerHTML = '<span class="d">' + d.label + "</span><span class=\"w\">(" + d.weekday + ')</span><span class="n">' + countOk(d) + "</span>";
+      b.addEventListener("click", function () { render(+b.dataset.i); });
+      nav.appendChild(b);
+    });
+  }
+  function countOk(d) {
+    var n = 0;
+    for (var k in d.status) if (d.status[k] === "예약가능") n++;
+    return n;
+  }
+
+  /* --- 존 목록 --- */
+  function buildZones() {
+    var box = document.getElementById("zones");
+    box.innerHTML = "";
+    state.zones.forEach(function (z) {
+      var sites = state.sites.filter(function (s) { return s.zone === z.id; }).sort(function (a, b) { return sKey(a) - sKey(b); });
+      var card = document.createElement("div");
+      card.className = "zone";
+      card.innerHTML =
+        '<div class="zone-head"><span class="sw" style="background:' + z.color + '"></span>' +
+        "<div><h3>" + esc(z.title) + "</h3><p>" + esc(z.desc) + " · " + sites.length + "면</p></div>" +
+        '<div class="zone-nums" data-nums></div></div>' +
+        '<div class="bar"><span data-bar style="width:0%"></span></div>' +
+        '<div class="chips" data-chips></div>';
+      var chips = card.querySelector("[data-chips]");
+      sites.forEach(function (s) {
+        var c = document.createElement("button");
+        c.type = "button";
+        c.className = "chip";
+        c.dataset.id = s.id;
+        c.textContent = s.label;
+        c.addEventListener("click", function () {
+          select(s.id, true);
+        });
+        chips.appendChild(c);
+      });
+      box.appendChild(card);
+      z._card = card;
+    });
+  }
+  function sKey(s) {
+    var m = s.label.match(/(\d+)(?:-(\d+))?/);
+    var n = m ? parseInt(m[1], 10) : 0;
+    var sub = m && m[2] ? parseInt(m[2], 10) : 0;
+    var grp = s.label.indexOf("파쇄석") === 0 ? 1 : 0;
+    return grp * 100000 + n * 100 + sub;
+  }
+
+  /* --- 선택 --- */
+  function select(id, scroll) {
+    if (state.sel === id) { clearSel(); return; }
+    clearSel();
+    state.sel = id;
+    var s = state.byId[id], e = state.els[id];
+    e.g.classList.add("is-sel");
+    var chip = document.querySelector('.chip[data-id="' + id + '"]');
+    if (chip) chip.classList.add("is-sel");
+    showSelBar(s);
+    if (scroll) {
+      var m = document.getElementById("map");
+      var r = m.getBoundingClientRect();
+      var target = r.left + (e.cx / 100) * r.width;
+      var sc = document.getElementById("mapScroll");
+      var cr = sc.getBoundingClientRect();
+      sc.scrollTo({ left: sc.scrollLeft + (target - cr.left) - cr.width / 2, behavior: "smooth" });
+      e.g.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }
+  function clearSel() {
+    if (state.sel && state.els[state.sel]) state.els[state.sel].g.classList.remove("is-sel");
+    var c = document.querySelector(".chip.is-sel");
+    if (c) c.classList.remove("is-sel");
+    state.sel = null;
+    document.getElementById("selBar").hidden = true;
+  }
+  function showSelBar(s) {
+    var z = state.zones.filter(function (v) { return v.id === s.zone; })[0] || { title: "" };
+    var raw = state.status.dates[state.dateIdx].status[s.id];
+    var k = kindOf(raw);
+    var bar = document.getElementById("selBar");
+    bar.innerHTML =
+      '<span class="nm">' + esc(s.label) + "</span>" +
+      '<span class="zk">' + esc(z.title) + "</span>" +
+      '<span class="pill ' + STATUS_CLASS[k] + '">' + STATUS_LABEL[k] + "</span>" +
+      (k === "ok" ? '<a class="go" href="' + state.status.bookingUrl + '" target="_blank" rel="noopener">예약하기 ↗</a>' : "") +
+      '<button class="x" type="button" aria-label="닫기">✕</button>';
+    bar.hidden = false;
+    bar.querySelector(".x").addEventListener("click", clearSel);
+  }
+
+  /* --- 날짜 렌더 --- */
+  function render(i) {
+    state.dateIdx = i;
+    clearSel();
+    var d = state.status.dates[i];
+    document.querySelectorAll("#dates .tab").forEach(function (b) {
+      b.setAttribute("aria-selected", +b.dataset.i === i ? "true" : "false");
+    });
+    var c = { ok: 0, confirm: 0, unsold: 0 };
+    var zoneStat = {};
+
+    state.sites.forEach(function (s) {
+      var raw = d.status[s.id];
+      var k = kindOf(raw);
+      c[k]++;
+      zoneStat[s.zone] = zoneStat[s.zone] || { ok: 0, confirm: 0, unsold: 0, total: 0 };
+      zoneStat[s.zone][k]++;
+      zoneStat[s.zone].total++;
+
+      var e = state.els[s.id];
+      e.hit.setAttribute("class", "hit " + STATUS_CLASS[k]);
+      e.g.setAttribute("class", "site st-" + STATUS_CLASS[k]);
+      e.g.setAttribute("aria-label", s.label + " " + STATUS_LABEL[k]);
+      if (k === "confirm") {
+        e.tag.className = "tag tag-confirmed";
+        e.tag.textContent = "예약완료";
+        e.tag.style.left = e.cx + "%";
+        e.tag.style.top = e.top + "%";
+      } else if (k === "unsold") {
+        e.tag.className = "tag tag-unsold";
+        e.tag.textContent = "미판매";
+        e.tag.style.left = e.cx + "%";
+        e.tag.style.top = e.cy + "%";
+      } else {
+        e.tag.className = "tag tag-hidden";
+        e.tag.textContent = "";
+      }
+
+      var chip = document.querySelector('.chip[data-id="' + s.id + '"]');
+      if (chip) chip.className = "chip " + STATUS_CLASS[k];
+    });
+
+    document.getElementById("cAvail").textContent = c.ok;
+    document.getElementById("cConfirm").textContent = c.confirm;
+    document.getElementById("cUnsold").textContent = c.unsold;
+
+    state.zones.forEach(function (z) {
+      var st = zoneStat[z.id] || { ok: 0, confirm: 0, unsold: 0, total: 0 };
+      var card = z._card;
+      if (!card) return;
+      card.querySelector("[data-nums]").innerHTML =
+        "<b>" + st.ok + "</b> / " + st.total + "면 가능" +
+        (st.confirm ? " · 완료 " + st.confirm : "") +
+        (st.unsold ? " · 미판매 " + st.unsold : "");
+      card.querySelector("[data-bar]").style.width = Math.round((st.ok / st.total) * 100) + "%";
+    });
+
+    document.getElementById("mapTitle").innerHTML = d.label + "(" + d.weekday + ") 자리 배치도 " +
+      '<em>예약가능 ' + c.ok + "면 · 사이트를 누르면 자세히 보여요</em>";
+  }
+
+  /* --- 확대 --- */
+  function initZoom() {
+    var btn = document.getElementById("zoomBtn");
+    var sc = document.getElementById("mapScroll");
+    btn.addEventListener("click", function () {
+      var on = sc.classList.toggle("zoom");
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.textContent = on ? "↩ 전체 보기" : "🔍 확대해서 보기";
+    });
+  }
+
+  /* --- 이미지 폭에 맞춰 글자 크기 조절 --- */
+  function initSizer() {
+    var map = document.getElementById("map");
+    function sync() {
+      var w = map.getBoundingClientRect().width || 900;
+      document.documentElement.style.setProperty("--mw", w.toFixed(1));
+    }
+    if (window.ResizeObserver) new ResizeObserver(sync).observe(map);
+    window.addEventListener("resize", sync);
+    sync();
+  }
+
+  function initFoot() {
+    var d = state.status;
+    var t = new Date(d.updatedAt);
+    var txt = isNaN(t) ? d.updatedAt : t.toLocaleString("ko-KR", {
+      timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"
+    });
+    document.getElementById("updated").textContent = "마지막 업데이트 " + txt + " · " + (d.sourceNote || "네이버 예약 기준");
+    document.getElementById("ctaTop").href = d.bookingUrl;
+    document.getElementById("ctaFoot").href = d.bookingUrl;
+    if (d.dates.length) {
+      var first = d.dates[0], last = d.dates[d.dates.length - 1];
+      document.getElementById("footNote").textContent = "표시 기간 " + first.label + "(" + first.weekday + ") ~ " + last.label + "(" + last.weekday + ")";
+    }
+  }
+
+  function getJSON(url) {
+    return fetch(url, { cache: "no-cache" }).then(function (r) {
+      if (!r.ok) throw new Error(url + " " + r.status);
+      return r.json();
+    });
+  }
+
+  Promise.all([getJSON("data/sites.json"), getJSON("data/status.json")])
+    .then(function (res) {
+      state.sites = res[0].sites;
+      state.zones = res[0].zones;
+      state.sites.forEach(function (s) { state.byId[s.id] = s; });
+      state.status = res[1];
+      buildMap();
+      buildTabs();
+      buildZones();
+      var today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+      var idx = -1;
+      state.status.dates.forEach(function (d, i) { if (idx < 0 && d.date >= today) idx = i; });
+      render(idx < 0 ? 0 : idx);
+      initZoom();
+      initSizer();
+      initFoot();
+    })
+    .catch(function (err) {
+      document.getElementById("map").insertAdjacentHTML("beforeend",
+        '<p class="err">현황 데이터를 불러오지 못했어요. 잠시 후 새로고침해 주세요.</p>');
+      console.error(err);
+    });
+})();
+</script>
+</body>
+</html>
