@@ -175,7 +175,7 @@
   .sel-bar .zk{font-size:12.5px; color:var(--muted)}
   .sel-bar .pill{font-size:12px; font-weight:800; border-radius:999px; padding:3px 9px; border:1px solid}
   .sel-bar .pill.available{color:#0b8a44; background:var(--avail-bg); border-color:var(--avail-line)}
-  .sel-bar .pill.confirmed{color:#c92a2a; background:var(--confirm-bg); border-color:var(--confirm-line)}
+  .sel-bar .pill.confirmed{color:#3b4450; background:#eff1f4; border-color:#d7dde4}
   .sel-bar .pill.unsold{color:#5c6675; background:var(--unsold-bg); border-color:var(--unsold-line)}
   .sel-bar .go{margin-left:auto; font-size:12.5px; font-weight:800; color:#0b8a44}
   .sel-bar .x{margin-left:auto; color:var(--muted); font-size:16px; line-height:1; padding:2px 4px}
@@ -283,7 +283,7 @@
   <section class="summary" id="summary" aria-label="선택 날짜 요약">
     <div class="stat avail"><div class="k"><i></i>예약가능</div><b id="cAvail">–</b></div>
     <div class="stat confirm"><div class="k"><i></i>예약완료</div><b id="cConfirm">–</b></div>
-    <div class="stat unsold"><div class="k"><i></i>미판매</div><b id="cUnsold">–</b></div>
+    <div class="stat unsold"><div class="k"><i></i>예약불가</div><b id="cUnsold">–</b></div>
   </section>
 
   <section class="card">
@@ -292,7 +292,7 @@
       <div class="legend">
         <span class="lg"><i class="av"></i>예약가능</span>
         <span class="lg"><i class="co"></i>예약완료</span>
-        <span class="lg"><i class="un"></i>미판매</span>
+        <span class="lg"><i class="un"></i>예약불가</span>
       </div>
     </div>
     <div class="map-shell">
@@ -304,7 +304,7 @@
       </div>
     </div>
     <div class="map-foot">
-      <p class="hint" id="hint">초록 테두리가 있는 자리가 그날 예약 가능한 자리예요. 어두운 칸은 예약완료, 흐린 칸은 미판매예요.</p>
+      <p class="hint" id="hint">초록 테두리가 있는 자리가 그날 예약 가능한 자리예요. 어두운 칸은 예약완료, 흐린 칸은 예약불가예요.</p>
       <button class="zoom" id="zoomBtn" type="button" aria-pressed="false">🔍 확대해서 보기</button>
     </div>
     <div class="sel-bar" id="selBar" hidden></div>
@@ -325,7 +325,6 @@
 (function () {
   "use strict";
 
-  var STATUS_LABEL = { ok: "예약가능", confirm: "예약완료", unsold: "미판매" };
   var STATUS_CLASS = { ok: "available", confirm: "confirmed", unsold: "unsold" };
   var state = {
     sites: [], byId: {}, zones: [], status: null, dateIdx: 0, sel: null, els: {},
@@ -335,11 +334,20 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var el = document.getElementById("ov");
 
+  /* 원문 상태값 → 표시용 3분류
+     ok(예약가능) / confirm(확정·이용완료) / unsold(예약불가(미판매)·예약불가(판매차단)·휴무) */
   function kindOf(raw) {
-    if (raw === "확정") return "confirm";
-    if (raw === "예약가능") return "ok";
-    if (raw && raw.indexOf("미판매") >= 0) return "unsold";
+    if (!raw || raw === "예약가능") return "ok";
+    if (raw === "확정" || raw.indexOf("이용완료") >= 0) return "confirm";
+    if (raw.indexOf("예약불가") >= 0 || raw.indexOf("휴무") >= 0) return "unsold";
     return "ok";
+  }
+  /* 하단 정보바에 보여 줄 상태 이름 (운영자가 쓰는 말 그대로) */
+  function statusLabel(raw) {
+    if (!raw || raw === "예약가능") return "예약가능";
+    if (raw === "확정") return "예약완료";
+    if (raw.indexOf("예약불가(") === 0) return "예약불가 · " + raw.slice(5, -1);
+    return raw;
   }
   function poly(pts) { return pts.map(function (p) { return p[0] + "," + p[1]; }).join(" "); }
   function avg(pts, i) { return pts.reduce(function (a, p) { return a + p[i]; }, 0) / pts.length; }
@@ -575,7 +583,7 @@
     bar.innerHTML =
       '<span class="nm">' + esc(s.label) + "</span>" +
       '<span class="zk">' + esc(z.title) + "</span>" +
-      '<span class="pill ' + STATUS_CLASS[k] + '">' + STATUS_LABEL[k] + "</span>" +
+      '<span class="pill ' + STATUS_CLASS[k] + '">' + esc(statusLabel(raw)) + "</span>" +
       (k === "ok" ? '<a class="go" href="' + state.status.bookingUrl + '" target="_blank" rel="noopener">예약하기 ↗</a>' : "") +
       '<button class="x" type="button" aria-label="닫기">✕</button>';
     bar.hidden = false;
@@ -604,7 +612,7 @@
       /* 예약완료·미판매는 칸 테두리까지 덮어 색이 남지 않게 한다 */
       e.hit.setAttribute("points", poly(k === "ok" ? s.points : (s.ring || s.points)));
       e.g.setAttribute("class", "site st-" + STATUS_CLASS[k]);
-      e.g.setAttribute("aria-label", s.label + " " + STATUS_LABEL[k]);
+      e.g.setAttribute("aria-label", s.label + " " + statusLabel(raw));
 
       var chip = document.querySelector('.chip[data-id="' + s.id + '"]');
       if (chip) chip.className = "chip " + STATUS_CLASS[k];
@@ -621,7 +629,7 @@
       card.querySelector("[data-nums]").innerHTML =
         "<b>" + st.ok + "</b> / " + st.total + "면 가능" +
         (st.confirm ? " · 완료 " + st.confirm : "") +
-        (st.unsold ? " · 미판매 " + st.unsold : "");
+        (st.unsold ? " · 불가 " + st.unsold : "");
       card.querySelector("[data-bar]").style.width = Math.round((st.ok / st.total) * 100) + "%";
     });
 
