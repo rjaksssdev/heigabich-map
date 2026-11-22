@@ -83,7 +83,10 @@
     border:1px solid var(--line); border-radius:16px; box-shadow:0 6px 20px -16px rgba(16,24,40,.6);
     backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
   }
-  .wk{flex:1 1 auto; min-width:0; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px}
+  .wk{
+    flex:1 1 auto; min-width:0; display:grid; gap:4px; justify-content:center;
+    grid-template-columns:repeat(var(--n, 7), minmax(0, 150px));
+  }
   .wk-nav{
     flex:0 0 auto; width:30px; border-radius:11px; border:1px solid var(--line); background:#fff;
     display:grid; place-items:center; color:var(--ink-2); transition:background .15s ease, opacity .15s ease;
@@ -447,8 +450,8 @@
     var box = document.getElementById("week");
     box.innerHTML = "";
     var slice = state.days.slice(state.page * PAGE, state.page * PAGE + PAGE);
-    /* 항상 7칸 고정 — 마지막 묶음이 7일보다 적어도 칸 크기가 변하지 않는다 */
-    box.style.gridTemplateColumns = "repeat(" + PAGE + ", minmax(0,1fr))";
+    /* 이 묶음의 날짜 수(최대 7)만큼 칸을 만들고, 칸 폭은 CSS 에서 상한을 둔다 */
+    box.style.setProperty("--n", Math.max(slice.length, 1));
     slice.forEach(function (entry) {
       var d = parseDay(entry.date);
       var b = document.createElement("button");
