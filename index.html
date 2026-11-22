@@ -320,6 +320,20 @@
     var p = d.split("-");
     return p[0] + "년 " + (+p[1]) + "월 " + (+p[2]) + "일";
   }
+  /* "2026-11-22T16:40:00+09:00" → "11/22 16:40" */
+  function fmtStamp(s) {
+    s = String(s || "");
+    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!m) return s;
+    var literal = (+m[2]) + "/" + (+m[3]) + " " + m[4] + ":" + m[5];
+    var tail = s.slice(19);
+    if (!tail || tail.indexOf("+09:00") === 0) return literal; // 이미 KST 표기
+    var t = new Date(s);
+    if (isNaN(t.getTime())) return literal;
+    var k = new Date(t.getTime() + 9 * 3600 * 1000);
+    var hh = k.getUTCHours(), mm = k.getUTCMinutes();
+    return (k.getUTCMonth() + 1) + "/" + k.getUTCDate() + " " + (hh < 10 ? "0" + hh : hh) + ":" + (mm < 10 ? "0" + mm : mm);
+  }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
 
   /* --- 좌표 데이터로 SVG 마커 + 태그 만들기 --- */
@@ -428,7 +442,7 @@
     var m = s.label.match(/(\d+)(?:-(\d+))?/);
     var n = m ? parseInt(m[1], 10) : 0;
     var sub = m && m[2] ? parseInt(m[2], 10) : 0;
-    var grp = s.label.indexOf("파쇄석") === 0 ? 1 : 0;
+    var grp = s.label.indexOf("파쇄석") === 0 ? 2 : s.label.indexOf("해") === 0 ? 1 : 0;
     return grp * 100000 + n * 100 + sub;
   }
 
@@ -560,11 +574,7 @@
 
   function initFoot() {
     var d = state.status;
-    var t = new Date(d.updatedAt);
-    var txt = isNaN(t) ? d.updatedAt : t.toLocaleString("ko-KR", {
-      timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"
-    });
-    document.getElementById("updated").textContent = "마지막 업데이트 " + txt + " · " + (d.sourceNote || "네이버 예약 기준");
+    document.getElementById("updated").textContent = "마지막 업데이트 " + fmtStamp(d.updatedAt) + " · " + (d.sourceNote || "네이버 예약 기준");
     document.getElementById("ctaTop").href = d.bookingUrl;
     document.getElementById("ctaFoot").href = d.bookingUrl;
     if (d.dates.length) {
