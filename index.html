@@ -425,6 +425,22 @@
     var p = String(s).split("-");
     return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
   }
+  function addDays(s, n) {
+    var d = parseDay(s);
+    d.setUTCDate(d.getUTCDate() + n);
+    return ymd(d);
+  }
+  /* 사이트별 네이버 예약 딥링크: 그 사이트가 선택된 상품 페이지 + 보고 있는 날짜를 1박으로 채운다.
+     (date/sites.json 의 naverItemId 사용 · 미판매 사이트는 캠핑장 전체 예약 페이지로 대체) */
+  function siteBookingUrl(s) {
+    var base = "https://booking.naver.com/booking/3/bizes/667875";
+    var fallback = (state.status && state.status.bookingUrl) || base;
+    if (!s || !s.naverItemId) return fallback;
+    var url = base + "/items/" + s.naverItemId;
+    var d = state.status.dates[state.dateIdx];
+    if (d && d.date) url += "?startDate=" + d.date + "&endDate=" + addDays(d.date, 1);
+    return url;
+  }
   function ymd(d) {
     return d.getUTCFullYear() + "-" + ("0" + (d.getUTCMonth() + 1)).slice(-2) + "-" + ("0" + d.getUTCDate()).slice(-2);
   }
@@ -585,7 +601,7 @@
       '<span class="nm">' + esc(s.label) + "</span>" +
       '<span class="zk">' + esc(z.title) + "</span>" +
       '<span class="pill ' + STATUS_CLASS[k] + '">' + esc(statusLabel(raw)) + "</span>" +
-      (k === "ok" ? '<a class="go" href="' + state.status.bookingUrl + '" target="_blank" rel="noopener">예약하기 ↗</a>' : "") +
+      (k === "ok" ? '<a class="go" href="' + siteBookingUrl(s) + '" target="_blank" rel="noopener" title="이 사이트와 날짜로 네이버 예약 열기">예약하기 ↗</a>' : "") +
       '<button class="x" type="button" aria-label="닫기">✕</button>';
     bar.hidden = false;
     bar.querySelector(".x").addEventListener("click", clearSel);
