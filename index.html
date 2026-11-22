@@ -83,7 +83,7 @@
     border:1px solid var(--line); border-radius:16px; box-shadow:0 6px 20px -16px rgba(16,24,40,.6);
     backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
   }
-  .wk{flex:1 1 auto; min-width:0; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px}
+  .wk{flex:1 1 auto; min-width:0; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; justify-content:center}
   .wk-nav{
     flex:0 0 auto; width:30px; border-radius:11px; border:1px solid var(--line); background:#fff;
     display:grid; place-items:center; color:var(--ink-2); transition:background .15s ease, opacity .15s ease;
@@ -91,6 +91,7 @@
   .wk-nav:hover:not(:disabled){background:#f4f6f8}
   .wk-nav:active:not(:disabled){transform:scale(.96)}
   .wk-nav:disabled{opacity:.3; cursor:default}
+  .wk-note{margin:5px 2px 0; font-size:11.5px; color:var(--muted)}
   .day{
     min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
     padding:5px 1px 6px; border-radius:11px; border:1px solid transparent; background:transparent; color:var(--ink-2);
@@ -102,12 +103,10 @@
   .day.sat .w{color:#3d7bd6}
   .day.sun .w{color:#d94a4a}
   .day:hover:not(.is-off):not([aria-selected="true"]){background:#f4f6f8}
-  .day.is-off{opacity:.38; cursor:default}
-  .day.is-off .n{color:#b3bcc7}
+  .day .n.zero{color:#98a2b0}
   .day[aria-selected="true"]{background:var(--ink); border-color:var(--ink); color:#fff}
   .day[aria-selected="true"] .w{color:#c6cfdb}
   .day[aria-selected="true"] .n{color:#8ff0b4}
-  .wk-cap{display:none}
 
   /* ---------- summary ---------- */
   .summary{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
@@ -267,14 +266,15 @@
 
   <div class="dates-wrap">
     <nav class="dates" id="dates" aria-label="날짜 선택">
-      <button class="wk-nav" id="prevWeek" type="button" aria-label="이전 주">
+      <button class="wk-nav" id="prevWeek" type="button" aria-label="앞 날짜 보기">
         <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M15 4.5 7.5 12l7.5 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="wk" id="week" role="tablist" aria-label="한 주 날짜"></div>
-      <button class="wk-nav" id="nextWeek" type="button" aria-label="다음 주">
+      <button class="wk-nav" id="nextWeek" type="button" aria-label="뒤 날짜 보기">
         <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M9 4.5 16.5 12 9 19.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </nav>
+    <p class="wk-note" id="wkNote" hidden></p>
   </div>
 
   <section class="summary" id="summary" aria-label="선택 날짜 요약">
@@ -326,7 +326,7 @@
   var STATUS_CLASS = { ok: "available", confirm: "confirmed", unsold: "unsold" };
   var state = {
     sites: [], byId: {}, zones: [], status: null, dateIdx: 0, sel: null, els: {},
-    byDate: {}, dateIndex: {}, weeks: [], weekIdx: 0
+    byDate: {}, dateIndex: {}, days: [], pages: 1, page: 0, stale: false
   };
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -405,8 +405,9 @@
     });
   }
 
-  /* --- 주간 날짜 바 --- */
+  /* --- 운영일 날짜 바 (오늘 이후 · 운영하는 날만, 7일씩) --- */
   var WD = ["일", "월", "화", "수", "목", "금", "토"];
+  var PAGE = 7;
 
   function parseDay(s) {
     var p = String(s).split("-");
@@ -415,53 +416,68 @@
   function ymd(d) {
     return d.getUTCFullYear() + "-" + ("0" + (d.getUTCMonth() + 1)).slice(-2) + "-" + ("0" + d.getUTCDate()).slice(-2);
   }
-  /* 월요일 시작 주 */
-  function weekMonday(s) {
-    var d = parseDay(s);
-    var back = (d.getUTCDay() + 6) % 7;
-    d.setUTCDate(d.getUTCDate() - back);
-    return ymd(d);
-  }
   function countOk(d) {
     var n = 0;
     for (var k in d.status) if (d.status[k] === "예약가능") n++;
     return n;
   }
+  /* 그날 예약이 열린 자리(예약가능·예약완료)가 하나라도 있으면 운영일.
+     전부 미판매(휴무)인 날이나 현황 자체가 없는 날은 목록에서 뺀다. */
+  function isOperating(d) {
+    for (var k in d.status) if (kindOf(d.status[k]) !== "unsold") return true;
+    return false;
+  }
 
-  function buildWeek() {
+  /* 오늘 이후 운영일만 추린다. (현황이 모두 지난 날이면 마지막 운영일들을 그대로 보여 준다) */
+  function buildDays() {
+    var today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+    var all = state.status.dates.filter(isOperating);
+    var future = all.filter(function (d) { return d.date >= today; });
+    state.stale = false;
+    if (!future.length) {
+      future = all.slice(-PAGE);
+      state.stale = future.length > 0;
+    }
+    state.days = future;
+    state.pages = Math.max(1, Math.ceil(future.length / PAGE));
+    state.page = 0;
+  }
+
+  function buildPage() {
     var box = document.getElementById("week");
     box.innerHTML = "";
-    var start = parseDay(state.weeks[state.weekIdx]);
-    for (var i = 0; i < 7; i++) {
-      var d = new Date(start.getTime() + i * 86400000);
-      var key = ymd(d);
-      var entry = state.byDate[key];
+    var slice = state.days.slice(state.page * PAGE, state.page * PAGE + PAGE);
+    var n = Math.max(slice.length, 1);
+    box.style.gridTemplateColumns = "repeat(" + n + ", minmax(0," + (n < PAGE ? "132px" : "1fr") + "))";
+    slice.forEach(function (entry) {
+      var d = parseDay(entry.date);
       var b = document.createElement("button");
       b.type = "button";
       b.className = "day" + (d.getUTCDay() === 0 ? " sun" : d.getUTCDay() === 6 ? " sat" : "");
-      b.dataset.date = key;
+      b.dataset.date = entry.date;
       b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", "false");
+      var ok = countOk(entry);
       b.innerHTML =
         '<span class="w">' + WD[d.getUTCDay()] + "</span>" +
         '<span class="d">' + (d.getUTCMonth() + 1) + "/" + d.getUTCDate() + "</span>" +
-        '<span class="n">' + (entry ? countOk(entry) : "–") + "</span>";
-      if (entry) {
-        b.setAttribute("aria-label", d.getUTCMonth() + 1 + "월 " + d.getUTCDate() + "일 " + WD[d.getUTCDay()] + "요일, 예약가능 " + countOk(entry) + "면");
-        b.addEventListener("click", function () { render(state.dateIndex[this.dataset.date]); });
-      } else {
-        b.disabled = true;
-        b.className += " is-off";
-        b.setAttribute("aria-label", d.getUTCMonth() + 1 + "월 " + d.getUTCDate() + "일 " + WD[d.getUTCDay()] + "요일, 예약 현황 없음");
-      }
+        '<span class="n' + (ok ? "" : " zero") + '">' + ok + "</span>";
+      b.setAttribute("aria-label", (d.getUTCMonth() + 1) + "월 " + d.getUTCDate() + "일 " + WD[d.getUTCDay()] + "요일, 예약가능 " + ok + "면");
+      b.addEventListener("click", function () { render(state.dateIndex[this.dataset.date]); });
       box.appendChild(b);
-    }
+    });
+
     var prev = document.getElementById("prevWeek");
     var next = document.getElementById("nextWeek");
-    prev.disabled = state.weekIdx <= 0;
-    next.disabled = state.weekIdx >= state.weeks.length - 1;
-    prev.title = prev.disabled ? "예약 현황이 있는 이전 주가 없어요" : "이전 주 보기";
-    next.title = next.disabled ? "예약 현황이 있는 다음 주가 없어요" : "다음 주 보기";
+    prev.disabled = state.page <= 0;
+    next.disabled = state.page >= state.pages - 1;
+    prev.title = prev.disabled ? "앞쪽 날짜가 더 없어요" : "앞 날짜 보기";
+    next.title = next.disabled ? "뒤쪽 날짜가 더 없어요" : "뒤 날짜 보기";
+
+    var note = document.getElementById("wkNote");
+    note.hidden = !state.stale;
+    if (state.stale) note.textContent = "예약 현황이 갱신되기 전이라 최근 운영일을 보여 주고 있어요.";
+
     syncWeekSel();
   }
 
@@ -473,17 +489,14 @@
     }
   }
 
-  /* 해당 주로 이동해 그 주에서 처음 데이터가 있는 날짜를 선택한다 */
-  function moveWeek(delta) {
-    var w = state.weekIdx + delta;
-    if (w < 0 || w >= state.weeks.length) return;
-    state.weekIdx = w;
-    buildWeek();
-    var start = parseDay(state.weeks[w]);
-    for (var i = 0; i < 7; i++) {
-      var key = ymd(new Date(start.getTime() + i * 86400000));
-      if (state.byDate[key]) { render(state.dateIndex[key]); return; }
-    }
+  /* 페이지(7일 묶음)를 넘기고 그 페이지의 첫 운영일을 선택한다 */
+  function movePage(delta) {
+    var p = state.page + delta;
+    if (p < 0 || p >= state.pages) return;
+    state.page = p;
+    buildPage();
+    var first = state.days[p * PAGE];
+    if (first) render(state.dateIndex[first.date]);
   }
 
   /* --- 존 목록 --- */
@@ -615,8 +628,8 @@
 
   /* --- 확대 --- */
   function initWeek() {
-    document.getElementById("prevWeek").addEventListener("click", function () { moveWeek(-1); });
-    document.getElementById("nextWeek").addEventListener("click", function () { moveWeek(1); });
+    document.getElementById("prevWeek").addEventListener("click", function () { movePage(-1); });
+    document.getElementById("nextWeek").addEventListener("click", function () { movePage(1); });
   }
 
   function initZoom() {
@@ -646,9 +659,9 @@
     document.getElementById("updated").textContent = "마지막 업데이트 " + fmtStamp(d.updatedAt) + " · " + (d.sourceNote || "네이버 예약 기준");
     document.getElementById("ctaTop").href = d.bookingUrl;
     document.getElementById("ctaFoot").href = d.bookingUrl;
-    if (d.dates.length) {
-      var first = d.dates[0], last = d.dates[d.dates.length - 1];
-      document.getElementById("footNote").textContent = "표시 기간 " + dLabel(first) + "(" + dWeekday(first) + ") ~ " + dLabel(last) + "(" + dWeekday(last) + ")";
+    if (state.days && state.days.length) {
+      var first = state.days[0], last = state.days[state.days.length - 1];
+      document.getElementById("footNote").textContent = "표시 기간 " + dLabel(first) + "(" + dWeekday(first) + ") ~ " + dLabel(last) + "(" + dWeekday(last) + ") · 운영일 기준";
     }
   }
 
@@ -679,23 +692,15 @@
         state.byDate[d.date] = d;
         state.dateIndex[d.date] = i;
       });
-      state.weeks = [];
-      state.status.dates.forEach(function (d) {
-        var w = weekMonday(d.date);
-        if (state.weeks.indexOf(w) < 0) state.weeks.push(w);
-      });
-      state.weeks.sort();
+      if (!state.status.dates.length) throw new Error("status.json 에 날짜가 없습니다");
 
       buildMap();
       buildZones();
       initWeek();
-      var today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
-      var idx = -1;
-      state.status.dates.forEach(function (d, i) { if (idx < 0 && d.date >= today) idx = i; });
-      if (idx < 0) idx = state.status.dates.length - 1;
-      state.weekIdx = Math.max(0, state.weeks.indexOf(weekMonday(state.status.dates[idx].date)));
-      buildWeek();
-      render(idx);
+      buildDays();
+      var first = state.days[0] || state.status.dates[state.status.dates.length - 1];
+      buildPage();
+      render(state.dateIndex[first.date]);
       initZoom();
       initSizer();
       initFoot();
