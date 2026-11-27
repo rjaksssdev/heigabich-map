@@ -3,7 +3,7 @@
  "source": "네이버 스마트플레이스 예약현황 주간 보기 (https://partner.booking.naver.com/bizes/667875/booking-calendar-view)",
  "sourceNote": "네이버 스마트플레이스 예약현황 기준",
  "bookingUrl": "https://booking.naver.com/booking/3/bizes/667875",
- "updatedAt": "2026-11-27T18:14:00+09:00",
+ "updatedAt": "2026-11-27T22:14:00+09:00",
  "dateRange": {
   "from": "2026-11-27",
   "to": "2026-12-24"
@@ -355,7 +355,7 @@
     "deck4": "예약가능",
     "deck4-1": "예약가능",
     "deck5": "예약가능",
-    "deck7": "예약가능",
+    "deck7": "확정",
     "deck7-1": "예약가능",
     "gravel8": "예약가능",
     "gravel8-1": "예약가능",
